@@ -1313,6 +1313,79 @@ void test_hadamard(void)
   MatDestroy(&circ_mat);
 }
 
+/*
+ * Test SWAP for two qubits
+ */
+void test_swap(void)
+{
+    circuit  circ,circ2;
+    Mat      circ_mat;
+    operator qubit,qubit2;
+    PetscInt Istart,Iend,i,equal_int;
+    PetscScalar val;
+    
+    PetscInt          ncols;
+    const PetscInt    *cols;
+    const PetscScalar *vals;
+    
+    //Create 1 two level system
+    create_op(2,&qubit);
+    create_op(2,&qubit2);
+    
+    //Build single SWAP matrix
+    create_circuit(&circ,1);
+    add_gate_to_circuit(&circ,1.0,SWAP,0,1);
+    combine_circuit_to_mat(&circ_mat,circ);
+    
+    equal_int = 1;
+    /* The swap gate swaps two qubits.
+     * As a matrix, for a two qubit system
+     *     1 0 0 0        I2 0
+     *     0 0 1 0   =    0  sig_z * sig_x
+     *     0 1 0 0
+     *     0 0 0 1
+     */
+    //Compare to known result
+    MatGetOwnershipRange(circ_mat,&Istart,&Iend);
+    for (i=Istart;i<Iend;i++){
+        MatGetRow(circ_mat,i,&ncols,&cols,&vals);
+        if(ncols>1) equal_int = 0;
+        if(i==0&&cols[0]==0){
+            val = 1.0;
+            if(PetscAbsComplex(vals[0]-val)>1e-10){
+                //They are different!
+                equal_int = 0;
+            }
+        } else if(i==1&&cols[0]==2){
+            val = 1.0;
+            if(PetscAbsComplex(vals[0]-val)>1e-10){
+                //They are different!
+                equal_int = 0;
+            }
+        } else if(i==2&&cols[0]==1){
+            val = 1.0;
+            if(PetscAbsComplex(vals[0]-val)>1e-10){
+                //They are different!
+                equal_int = 0;
+            }
+        } else if(i==3&&cols[0]==3){
+            val = 1.0;
+            if(PetscAbsComplex(vals[0]-val)>1e-10){
+                //They are different!
+                equal_int = 0;
+            }
+        } else {
+            equal_int = 0;
+        }
+        MatRestoreRow(circ_mat,i,&ncols,&cols,&vals);
+    }
+    
+    TEST_ASSERT_EQUAL_INT(1,equal_int);
+    
+    MatDestroy(&circ_mat);
+    destroy_op(&qubit);
+    destroy_op(&qubit2);
+}
 
 int main(int argc, char** argv)
 {
@@ -1337,6 +1410,8 @@ int main(int argc, char** argv)
   RUN_TEST(test_cnot);
   QuaC_clear();
   RUN_TEST(test_cxz);
+  QuaC_clear();
+  RUN_TEST(test_swap);
   QuaC_finalize();
   return UNITY_END();
 }
