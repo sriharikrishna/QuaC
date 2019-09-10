@@ -7,8 +7,10 @@
 #include <petscksp.h>
 #include <petscts.h>
 
+
 typedef enum {
   NULL_GATE = -1000,
+  SWAP   = -6,
   CZX  = -5,
   CmZ  = -4,
   CZ   = -3,
@@ -22,7 +24,11 @@ typedef enum {
   RX     = 6,
   RY     = 7,
   RZ     = 8,
-  U3     = 9
+  U3     = 9,
+  PHASESHIFT  = 10,
+  T = 11,
+  TDAG = 12,
+  S = 13
 } gate_type;
 
 struct quantum_gate_struct{
@@ -77,6 +83,10 @@ void RX_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,Pe
 void RY_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
 void RZ_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
 void U3_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
+void SWAP_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
+void T_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
+void TDAG_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
+void S_get_val_j_from_global_i(PetscInt,struct quantum_gate_struct,PetscInt*,PetscInt[],PetscScalar[],PetscInt);
 
 #define MAX_GATES 100 // Consider not making this a define
 

@@ -100,6 +100,7 @@ PetscErrorCode _QC_PostEventFunction(TS ts,PetscInt nevents,PetscInt event_list[
     /* Apply all gates at a given time incrementally  */
     while (current_gate<num_gates && _circuit_list[_current_circuit].gate_list[current_gate].time == gate_time){
       /* apply the current gate */
+        printf("current_gate %d num_gates %d\n",current_gate,num_gates);
       _apply_gate(_circuit_list[_current_circuit].gate_list[current_gate],U);
 
       /* Increment our gate counter */
@@ -331,10 +332,11 @@ void _construct_gate_mat(gate_type my_gate_type,int *systems,Mat gate_mat){
         }
       }
     }
-  } else if (my_gate_type == SIGMAX || my_gate_type == SIGMAY || my_gate_type == SIGMAZ) {
+  } else if (my_gate_type == SIGMAX || my_gate_type == SIGMAY || my_gate_type == SIGMAZ || my_gate_type == SWAP) {
 
     /*
      * The pauli matrices are two qubit gates, sigmax, sigmay, sigmaz
+     * The SWAP gate swaps two qubits.
      */
 
     n_before1  = subsystem_list[systems[0]]->n_before;
@@ -673,7 +675,7 @@ void add_gate_to_circuit(circuit *circ,PetscReal time,gate_type my_gate_type,...
     }
     (*circ).gate_list[(*circ).num_gates].qubit_numbers[i] = qubit;
   }
-  if (my_gate_type==RX||my_gate_type==RY||my_gate_type==RZ){
+  if (my_gate_type==RX||my_gate_type==RY||my_gate_type==RZ||my_gate_type==PHASESHIFT){
     //Get the theta parameter from the last argument passed in
     theta = va_arg(ap,PetscReal);
     (*circ).gate_list[(*circ).num_gates].theta = theta;
@@ -759,7 +761,7 @@ void _get_val_j_from_global_i_gates(PetscInt i,struct quantum_gate_struct gate,P
   operator this_op1,this_op2;
   PetscInt n_after,i_sub,tmp_int,control,moved_system,my_levels,num_js_i1=0,num_js_i2=0;
   PetscInt k1,k2,n_before1,n_before2,i_tmp,j_sub,extra_after,i1,i2,j1,js_i1[2],js_i2[2];
-  PetscScalar vals_i1[2],vals_i2[2];
+  PetscScalar vals_i1[2],vals_i2[2],theta,phi,lambda;
   //2 is hardcoded because 2 is the largest number of js from 1 i (HADAMARD)
   /*
    * We store our gates as a type and affected systems;
@@ -937,36 +939,228 @@ void _get_val_j_from_global_i_gates(PetscInt i,struct quantum_gate_struct gate,P
         }
 
       } else if (gate.my_gate_type == EYE){
-        /*
-         * Identity (EYE) gate
-         *
-         *   | 1   0 |
-         *   | 0   1 |
-         *
-         */
-        *num_js = 1;
-        if (i_sub==0) {
-          // Diagonal element
-          js[0] = i;
-          vals[0] = 1.0;
-
-        } else if (i_sub==1){
-          // Diagonal element
-          js[0] = i;
-          vals[0] = 1.0;
-
-        } else {
-          if (nid==0){
-            printf("ERROR! sigmax gate is only defined for qubits\n");
-            exit(0);
+          /*
+           * Identity (EYE) gate
+           *
+           *   | 1   0 |
+           *   | 0   1 |
+           *
+           */
+          *num_js = 1;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0] = i;
+              vals[0] = 1.0;
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0] = i;
+              vals[0] = 1.0;
+              
+          } else {
+              if (nid==0){
+                  printf("ERROR! sigmax gate is only defined for qubits\n");
+                  exit(0);
+              }
           }
-        }
-
+          
+      } else if (gate.my_gate_type == PHASESHIFT){
+           /*
+           * PHASESHIFT gate
+           *
+           *   | 1   0 |
+           *   | 0  e^(-i*theta) |
+           *
+           */
+          *num_js = 1;
+          theta = gate.theta;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0] = i;
+              vals[0] = 1.0;
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0] = i;
+              vals[0] = PetscExpComplex(-PETSC_i*theta);
+          } else {
+              if (nid==0){
+                  printf("ERROR! phaseshift gate is only defined for qubits\n");
+                  exit(0);
+              }
+          }
+          
+      } else if (gate.my_gate_type == T){
+          /*
+           * T gate
+           *
+           *   | 1   0 |
+           *   | 0  e^(i*pi/4) |
+           *
+           */
+          *num_js = 1;
+          theta = gate.theta;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0] = i;
+              vals[0] = 1.0;
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0] = i;
+              vals[0] = PetscExpComplex(PETSC_i*PETSC_PI/4);
+          } else {
+              if (nid==0){
+                  printf("ERROR! t gate is only defined for qubits\n");
+                  exit(0);
+              }
+          }
+          
+      } else if (gate.my_gate_type == TDAG){
+          /*
+           * TDAG gate
+           *
+           *   | 1   0 |
+           *   | 0  e^(-i*pi/4) |
+           *
+           */
+          *num_js = 1;
+          theta = gate.theta;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0] = i;
+              vals[0] = 1.0;
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0] = i;
+              vals[0] = PetscExpComplex(-PETSC_i*PETSC_PI/4);
+          } else {
+              if (nid==0){
+                  printf("ERROR! tdag gate is only defined for qubits\n");
+                  exit(0);
+              }
+          }
+          
+      } else if (gate.my_gate_type == S){
+          /*
+           * S gate
+           *
+           *   | 1   0 |
+           *   | 0   i |
+           *
+           */
+          *num_js = 1;
+          theta = gate.theta;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0] = i;
+              vals[0] = 1.0;
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0] = i;
+              vals[0] = PetscExpComplex(PETSC_i*PETSC_PI/4);
+          } else {
+              if (nid==0){
+                  printf("ERROR! t gate is only defined for qubits\n");
+                  exit(0);
+              }
+          }
+          
+      } else if (gate.my_gate_type == RX){
+          /*
+           * RX gate
+           *
+           *   | cos(theta/2)    i*sin(theta/2) |
+           *   | i*sin(theta/2)  cos(theta/2)   |
+           *
+           */
+          theta = gate.theta;
+          *num_js = 2;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0] = i;
+              vals[0] = PetscCosReal(theta/2);
+              
+              // Off diagonal element
+              tmp_int = i - 0 * n_after;
+              k2      = tmp_int/(this_op1->my_levels*n_after);//Use integer arithmetic to get floor function
+              k1      = tmp_int%(this_op1->my_levels*n_after);
+              js[1]     = (0 + 1) * n_after + k1 + k2*this_op1->my_levels*n_after;
+              vals[1]   = PETSC_i * PetscSinReal(theta/2);
+              
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0] = i;
+              vals[0] = PetscCosReal(theta/2);
+              
+              // Off diagonal element
+              tmp_int = i - (0+1) * n_after;
+              k2      = tmp_int/(this_op1->my_levels*n_after);//Use integer arithmetic to get floor function
+              k1      = tmp_int%(this_op1->my_levels*n_after);
+              js[1]   = 0 * n_after + k1 + k2*this_op1->my_levels*n_after;
+              vals[1]   = PETSC_i * PetscSinReal(theta/2);              
+              
+          } else {
+              if (nid==0){
+                  printf("ERROR! rz gate is only defined for qubits\n");
+                  exit(0);
+              }
+          }
+          
+      } else if (gate.my_gate_type == U3) {
+          /*
+           * u3 gate
+           *
+           * u3(theta,phi,lambda)  = | cos(theta/2)              -e^(i lambda) * sin(theta/2)    |
+           *                         | e^(i phi) sin(theta/2)    e^(i (lambda+phi)) cos(theta/2) |
+           * the u3 gate is a general one qubit transformation.
+           * the u2 gate is u3(pi/2,phi,lambda)
+           * the u1 gate is u3(0,0,lambda)
+           * The u3 gate has two elements per row,
+           * with both diagonal anad off diagonal elements
+           *
+           */
+          theta = gate.theta;
+          phi = gate.phi;
+          lambda = gate.lambda;
+          *num_js = 2;
+          if (i_sub==0) {
+              // Diagonal element
+              js[0]   = i;
+              vals[0] = PetscCosReal(theta/2);
+              
+              // Off diagonal element
+              tmp_int = i - 0 * n_after;
+              k2      = tmp_int/(this_op1->my_levels*n_after);//Use integer arithmetic to get floor function
+              k1      = tmp_int%(this_op1->my_levels*n_after);
+              js[1]   = (0 + 1) * n_after + k1 + k2*this_op1->my_levels*n_after;
+              vals[1] = -PetscExpComplex(PETSC_i*lambda)*PetscSinReal(theta/2);
+              
+          } else if (i_sub==1){
+              // Diagonal element
+              js[0]   = i;
+              vals[0] = PetscExpComplex(PETSC_i*(lambda+phi))*PetscCosReal(theta/2);
+              // Off diagonal element
+              tmp_int = i - (0+1) * n_after;
+              k2      = tmp_int/(this_op1->my_levels*n_after);//Use integer arithmetic to get floor function
+              k1      = tmp_int%(this_op1->my_levels*n_after);
+              js[1]   = 0 * n_after + k1 + k2*this_op1->my_levels*n_after;
+              vals[1] = PetscExpComplex(PETSC_i*phi)*PetscSinReal(theta/2);
+              
+          } else {
+              if (nid==0){
+                  printf("ERROR! u3 gate is only defined for qubits\n");
+                  exit(0);
+              }
+          }
       } else {
 
 
         if (nid==0){
-          printf("ERROR! Gate type not understood!\n");
+          printf("ERROR! Gate type not understood! %d\n", gate.my_gate_type);
           exit(0);
         }
       }
@@ -1377,9 +1571,73 @@ void _get_val_j_from_global_i_gates(PetscInt i,struct quantum_gate_struct gate,P
             exit(0);
           }
         }
+      } else if (gate.my_gate_type == SWAP) {
+          /* The swap gate swaps two qubits.
+           * As a matrix, for a two qubit system
+           *     1 0 0 0        I2 0
+           *     0 0 1 0   =    0  sig_z * sig_x
+           *     0 1 0 0
+           *     0 0 0 1
+           */
+          *num_js = 1;
+          if (i_sub==0){
+              // Same, regardless of control
+              // Diagonal
+              vals[0] = 1.0;
+              /*
+               * We shouldn't need to deal with any permutation here;
+               * i_sub is in the permuted basis, but we know that a
+               * diagonal element is diagonal in all bases, so
+               * we just use the computational basis value.
+               p         */
+              js[0]  = i;
+              
+          } else if (i_sub==1){
+              // Check which is the control bit
+              vals[0] = 1.0;
+                  // Off diagonal
+                  tmp_int = i_tmp - i_sub * n_after;
+                  k2      = tmp_int/(my_levels*n_after);//Use integer arithmetic to get floor function
+                  k1      = tmp_int%(my_levels*n_after);
+                  j_sub   = 3;
+                  j1   = (j_sub) * n_after + k1 + k2*my_levels*n_after; // 3 = j_sub
+                  
+                  /* Permute back to computational basis */
+                  _change_basis_ij_pair(&i_tmp,&j1,moved_system,gate.qubit_numbers[control]+1); // i_tmp useless here
+                  js[0] = j1;
+              
+          } else if (i_sub==2){
+              vals[0] = 1.0;
+                  // Off diagonal
+                  tmp_int = i_tmp - i_sub * n_after;
+                  k2      = tmp_int/(my_levels*n_after);//Use integer arithmetic to get floor function
+                  k1      = tmp_int%(my_levels*n_after);
+                  j_sub   = 3;
+                  j1     = j_sub * n_after + k1 + k2*my_levels*n_after;
+                  
+                  /* Permute back to computational basis */
+                  _change_basis_ij_pair(&i_tmp,&j1,moved_system,gate.qubit_numbers[control]+1); // i_tmp useless here
+                  js[0] = j1;
+          } else if (i_sub==3){
+              vals[0]   = 1.0;
+                  // Off diagonal element
+                  tmp_int = i_tmp - i_sub * n_after;
+                  k2      = tmp_int/(my_levels*n_after);//Use integer arithmetic to get floor function
+                  k1      = tmp_int%(my_levels*n_after);
+                  j_sub   = 1;
+                  j1     = j_sub * n_after + k1 + k2*my_levels*n_after;
+              /* Permute back to computational basis */
+              _change_basis_ij_pair(&i_tmp,&j1,moved_system,gate.qubit_numbers[control]+1);//i_tmp useless here
+              js[0] = j1;
+          } else {
+              if (nid==0){
+                  printf("ERROR! SWAP gate is only defined for 2 qubits!\n");
+                  exit(0);
+              }
+          }
       } else {
         if (nid==0){
-          printf("ERROR! Gate type not understood! %d\n",gate.my_gate_type);
+          printf("ERROR!Two Qubit gate type not understood! %d\n",gate.my_gate_type);
           exit(0);
         }
       }
@@ -2268,6 +2526,125 @@ void CZX_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,Pets
   return;
 }
 
+void SWAP_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
+                                 PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
+    PetscInt n_after,i_sub,k1,k2,tmp_int,i1,i2,num_js_i1=0,num_js_i2=0,js_i1[2],js_i2[2];
+    PetscInt control,i_tmp,my_levels,j_sub,moved_system,j1;
+    PetscScalar vals_i1[2],vals_i2[2];
+    
+    /* The swap gate swaps two qubits.
+     * As a matrix, for a two qubit system
+     *     1 0 0 0        I2 0
+     *     0 0 1 0   =    0  sig_z * sig_x
+     *     0 1 0 0
+     *     0 0 0 1
+     */
+    
+    if (tensor_control!= 0) {
+        
+        /* 4 is hardcoded because 2 qubits with 2 levels each */
+        my_levels   = 4;
+        // Get the correct hilbert space information
+        i_tmp = i;
+        _get_n_after_2qbit(&i_tmp,gate.qubit_numbers,tensor_control,&n_after,&control,&moved_system,&i_sub);
+        
+        printf("\n tensor_control %d,control %d,i_sub %d n_after %d\n", tensor_control, control, i_sub, n_after );
+        *num_js = 1;
+        if (i_sub==0){
+            // Diagonal
+            vals[0] = 1.0;
+            /*
+             * We shouldn't need to deal with any permutation here;
+             * i_sub is in the permuted basis, but we know that a
+             * diagonal element is diagonal in all bases, so
+             * we just use the computational basis value.
+             p         */
+            js[0]  = i;
+            
+        } else if (i_sub==1){
+            // Check which is the control bit
+            vals[0] = 1.0;
+                // Off diagonal
+                tmp_int = i_tmp - i_sub * n_after;
+                k2      = tmp_int/(my_levels*n_after);//Use integer arithmetic to get floor function
+                k1      = tmp_int%(my_levels*n_after);
+                j_sub   = 2;
+                j1   = (j_sub) * n_after + k1 + k2*my_levels*n_after; // 3 = j_sub
+                
+                // Permute back to computational basis
+                _change_basis_ij_pair(&i_tmp,&j1,moved_system,gate.qubit_numbers[control]+1); // i_tmp useless here
+                js[0] = j1;
+            
+        } else if (i_sub==2){
+            vals[0] = 1.0;
+                // Off diagonal
+                tmp_int = i_tmp - i_sub * n_after;
+                k2      = tmp_int/(my_levels*n_after);//Use integer arithmetic to get floor function
+                k1      = tmp_int%(my_levels*n_after);
+                j_sub   = 1;
+                j1     = j_sub * n_after + k1 + k2*my_levels*n_after;
+                
+                /* Permute back to computational basis */
+                _change_basis_ij_pair(&i_tmp,&j1,moved_system,gate.qubit_numbers[control]+1); // i_tmp useless here
+                js[0] = j1;
+        } else if (i_sub==3){
+            // Diagonal
+            vals[0] = 1.0;
+            /*
+             * We shouldn't need to deal with any permutation here;
+             * i_sub is in the permuted basis, but we know that a
+             * diagonal element is diagonal in all bases, so
+             * we just use the computational basis value.
+             p         */
+            js[0]  = i;
+        } else {
+            if (nid==0){
+                printf("ERROR! SWAP gate is only defined for 2 qubits!\n");
+                exit(0);
+            }
+        }
+    } else {
+        /*
+         * U* cross U
+         * To calculate this, we first take our i_global, convert
+         * it to i1 (for U*) and i2 (for U) within their own
+         * part of the Hilbert space. pWe then treat i1 and i2 as
+         * global i's for the matrices U* and U themselves, which
+         * gives us j's for those matrices. We then expand the j's
+         * to get the full space representation, using the normal
+         * tensor product.
+         */
+        
+        /* Calculate i1, i2 */
+        i1 = i/total_levels;
+        i2 = i%total_levels;
+        
+        /* Now, get js for U* (i1) by calling this function */
+        SWAP_get_val_j_from_global_i(i1,gate,&num_js_i1,js_i1,vals_i1,-1);
+        
+        /* Now, get js for U (i2) by calling this function */
+        SWAP_get_val_j_from_global_i(i2,gate,&num_js_i2,js_i2,vals_i2,-1);
+        
+        /*
+         * Combine j's to get U* cross U
+         * Must do all possible permutations
+         */
+        *num_js = 0;
+        for(k1=0;k1<num_js_i1;k1++){
+            for(k2=0;k2<num_js_i2;k2++){
+                js[*num_js] = total_levels * js_i1[k1] + js_i2[k2];
+                //Need to take complex conjugate to get true U*
+                vals[*num_js] = PetscConjComplex(vals_i1[k1])*vals_i2[k2];
+                
+                *num_js = *num_js + 1;
+            }
+        }
+        
+    }
+    
+    return;
+}
+
 
 void HADAMARD_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
                                       PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
@@ -2512,6 +2889,81 @@ void EYE_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,Pets
   return;
 }
 
+
+void PHASESHIFT_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
+                                    PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
+    PetscInt n_after,i_sub,k1,k2,i1,i2,num_js_i1,num_js_i2,js_i1[2],js_i2[2],my_levels;
+    PetscScalar vals_i1[2],vals_i2[2];
+    PetscReal theta;
+    
+    /*
+     * PHASESHIFT gate
+     *
+     *   | 1   0 |
+     *   | 0  e^(-i*theta) |
+     *
+     */
+    
+    theta=gate.theta;
+    if (tensor_control!= 0) {
+        my_levels = 2; //Hardcoded becase single qubit gate
+        _get_n_after_1qbit(i,gate.qubit_numbers[0],tensor_control,&n_after,&i_sub);
+        *num_js = 1;
+        if (i_sub==0) {
+            // Diagonal element
+            js[0] = i;
+            vals[0] = 1.0;
+            
+        } else if (i_sub==1){
+            // Diagonal element
+            js[0] = i;
+            vals[0] = PetscExpComplex(-PETSC_i*theta);
+            
+        } else {
+            if (nid==0){
+                printf("ERROR! phaseshift gate is only defined for qubits\n");
+                exit(0);
+            }
+        }
+    } else {
+        /*
+         * U* cross U
+         * To calculate this, we first take our i_global, convert
+         * it to i1 (for U*) and i2 (for U) within their own
+         * part of the Hilbert space. pWe then treat i1 and i2 as
+         * global i's for the matrices U* and U themselves, which
+         * gives us j's for those matrices. We then expand the j's
+         * to get the full space representation, using the normal
+         * tensor product.
+         */
+        
+        /* Calculate i1, i2 */
+        i1 = i/total_levels;
+        i2 = i%total_levels;
+        
+        /* Now, get js for U* (i1) by calling this function */
+        PHASESHIFT_get_val_j_from_global_i(i1,gate,&num_js_i1,js_i1,vals_i1,-1);
+        
+        /* Now, get js for U (i2) by calling this function */
+        PHASESHIFT_get_val_j_from_global_i(i2,gate,&num_js_i2,js_i2,vals_i2,-1);
+        
+        /*
+         * Combine j's to get U* cross U
+         * Must do all possible permutations
+         */
+        *num_js = 0;
+        for(k1=0;k1<num_js_i1;k1++){
+            for(k2=0;k2<num_js_i2;k2++){
+                js[*num_js] = total_levels * js_i1[k1] + js_i2[k2];
+                //Need to take complex conjugate to get true U*
+                vals[*num_js] = PetscConjComplex(vals_i1[k1])*vals_i2[k2];
+                
+                *num_js = *num_js + 1;
+            }
+        }
+    }
+    return;
+}
 
 void SIGMAZ_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
                                       PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
@@ -3003,6 +3455,228 @@ void SIGMAX_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,P
   return;
 }
 
+void T_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
+                                PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
+    PetscInt n_after,i_sub,k1,k2,i1,i2,num_js_i1,num_js_i2,js_i1[2],js_i2[2],my_levels;
+    PetscScalar vals_i1[2],vals_i2[2];
+    PetscReal theta;
+    /*
+     * T gate
+     *
+     *   | 1   0               |
+     *   | 0       exp(i*pi/4) |
+     *
+     */
+    
+    theta = gate.theta;
+    if (tensor_control!= 0) {
+        my_levels = 2; //Hardcoded becase single qubit gate
+        _get_n_after_1qbit(i,gate.qubit_numbers[0],tensor_control,&n_after,&i_sub);
+        *num_js = 1;
+        if (i_sub==0) {
+            // Diagonal element
+            js[0] = i;
+            vals[0] = 1;
+            
+        } else if (i_sub==1){
+            // Diagonal element
+            js[0] = i;
+            vals[0] = PetscExpComplex(PETSC_i*PETSC_PI/4);
+            
+        } else {
+            if (nid==0){
+                printf("ERROR! T gate is only defined for qubits\n");
+                exit(0);
+            }
+        }
+    } else {
+        /*
+         * U* cross U
+         * To calculate this, we first take our i_global, convert
+         * it to i1 (for U*) and i2 (for U) within their own
+         * part of the Hilbert space. pWe then treat i1 and i2 as
+         * global i's for the matrices U* and U themselves, which
+         * gives us j's for those matrices. We then expand the j's
+         * to get the full space representation, using the normal
+         * tensor product.
+         */
+        
+        /* Calculate i1, i2 */
+        i1 = i/total_levels;
+        i2 = i%total_levels;
+        
+        /* Now, get js for U* (i1) by calling this function */
+        T_get_val_j_from_global_i(i1,gate,&num_js_i1,js_i1,vals_i1,-1);
+        
+        /* Now, get js for U (i2) by calling this function */
+        T_get_val_j_from_global_i(i2,gate,&num_js_i2,js_i2,vals_i2,-1);
+        
+        /*
+         * Combine j's to get U* cross U
+         * Must do all possible permutations
+         */
+        *num_js = 0;
+        for(k1=0;k1<num_js_i1;k1++){
+            for(k2=0;k2<num_js_i2;k2++){
+                js[*num_js] = total_levels * js_i1[k1] + js_i2[k2];
+                //Need to take complex conjugate to get true U*
+                vals[*num_js] = PetscConjComplex(vals_i1[k1])*vals_i2[k2];
+                
+                *num_js = *num_js + 1;
+            }
+        }
+    }
+    return;
+}
+
+void TDAG_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
+                               PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
+    PetscInt n_after,i_sub,k1,k2,i1,i2,num_js_i1,num_js_i2,js_i1[2],js_i2[2],my_levels;
+    PetscScalar vals_i1[2],vals_i2[2];
+    PetscReal theta;
+    /*
+     * TDAG gate
+     *
+     *   | 1   0               |
+     *   | 0       exp(i*pi/4) |
+     *
+     */
+    
+    theta = gate.theta;
+    if (tensor_control!= 0) {
+        my_levels = 2; //Hardcoded becase single qubit gate
+        _get_n_after_1qbit(i,gate.qubit_numbers[0],tensor_control,&n_after,&i_sub);
+        *num_js = 1;
+        if (i_sub==0) {
+            // Diagonal element
+            js[0] = i;
+            vals[0] = 1;
+            
+        } else if (i_sub==1){
+            // Diagonal element
+            js[0] = i;
+            vals[0] = PetscExpComplex(-PETSC_i*PETSC_PI/4);
+            
+        } else {
+            if (nid==0){
+                printf("ERROR! T gate is only defined for qubits\n");
+                exit(0);
+            }
+        }
+    } else {
+        /*
+         * U* cross U
+         * To calculate this, we first take our i_global, convert
+         * it to i1 (for U*) and i2 (for U) within their own
+         * part of the Hilbert space. pWe then treat i1 and i2 as
+         * global i's for the matrices U* and U themselves, which
+         * gives us j's for those matrices. We then expand the j's
+         * to get the full space representation, using the normal
+         * tensor product.
+         */
+        
+        /* Calculate i1, i2 */
+        i1 = i/total_levels;
+        i2 = i%total_levels;
+        
+        /* Now, get js for U* (i1) by calling this function */
+        TDAG_get_val_j_from_global_i(i1,gate,&num_js_i1,js_i1,vals_i1,-1);
+        
+        /* Now, get js for U (i2) by calling this function */
+        TDAG_get_val_j_from_global_i(i2,gate,&num_js_i2,js_i2,vals_i2,-1);
+        
+        /*
+         * Combine j's to get U* cross U
+         * Must do all possible permutations
+         */
+        *num_js = 0;
+        for(k1=0;k1<num_js_i1;k1++){
+            for(k2=0;k2<num_js_i2;k2++){
+                js[*num_js] = total_levels * js_i1[k1] + js_i2[k2];
+                //Need to take complex conjugate to get true U*
+                vals[*num_js] = PetscConjComplex(vals_i1[k1])*vals_i2[k2];
+                
+                *num_js = *num_js + 1;
+            }
+        }
+    }
+    return;
+}
+
+void S_get_val_j_from_global_i(PetscInt i,struct quantum_gate_struct gate,PetscInt *num_js,
+                               PetscInt js[],PetscScalar vals[],PetscInt tensor_control){
+    PetscInt n_after,i_sub,k1,k2,i1,i2,num_js_i1,num_js_i2,js_i1[2],js_i2[2],my_levels;
+    PetscScalar vals_i1[2],vals_i2[2];
+    PetscReal theta;
+    /*
+     * S gate
+     *
+     *   | 1   0 |
+     *   | 0   i |
+     *
+     */
+    
+    theta = gate.theta;
+    if (tensor_control!= 0) {
+        my_levels = 2; //Hardcoded becase single qubit gate
+        _get_n_after_1qbit(i,gate.qubit_numbers[0],tensor_control,&n_after,&i_sub);
+        *num_js = 1;
+        if (i_sub==0) {
+            // Diagonal element
+            js[0] = i;
+            vals[0] = 1;
+            
+        } else if (i_sub==1){
+            // Diagonal element
+            js[0] = i;
+            vals[0] = PETSC_i;
+            
+        } else {
+            if (nid==0){
+                printf("ERROR! S gate is only defined for qubits\n");
+                exit(0);
+            }
+        }
+    } else {
+        /*
+         * U* cross U
+         * To calculate this, we first take our i_global, convert
+         * it to i1 (for U*) and i2 (for U) within their own
+         * part of the Hilbert space. pWe then treat i1 and i2 as
+         * global i's for the matrices U* and U themselves, which
+         * gives us j's for those matrices. We then expand the j's
+         * to get the full space representation, using the normal
+         * tensor product.
+         */
+        
+        /* Calculate i1, i2 */
+        i1 = i/total_levels;
+        i2 = i%total_levels;
+        
+        /* Now, get js for U* (i1) by calling this function */
+        S_get_val_j_from_global_i(i1,gate,&num_js_i1,js_i1,vals_i1,-1);
+        
+        /* Now, get js for U (i2) by calling this function */
+        S_get_val_j_from_global_i(i2,gate,&num_js_i2,js_i2,vals_i2,-1);
+        
+        /*
+         * Combine j's to get U* cross U
+         * Must do all possible permutations
+         */
+        *num_js = 0;
+        for(k1=0;k1<num_js_i1;k1++){
+            for(k2=0;k2<num_js_i2;k2++){
+                js[*num_js] = total_levels * js_i1[k1] + js_i2[k2];
+                //Need to take complex conjugate to get true U*
+                vals[*num_js] = PetscConjComplex(vals_i1[k1])*vals_i2[k2];
+                
+                *num_js = *num_js + 1;
+            }
+        }
+    }
+    return;
+}
+
 void _get_n_after_2qbit(PetscInt *i,int qubit_numbers[],PetscInt tensor_control,PetscInt *n_after, PetscInt *control, PetscInt *moved_system, PetscInt *i_sub){
   operator this_op1,this_op2;
   PetscInt n_before1,n_before2,extra_after,my_levels=4,j1; //4 is hardcoded because 2 qbits
@@ -3082,9 +3756,9 @@ void _get_n_after_1qbit(PetscInt i,int qubit_number,PetscInt tensor_control,Pets
 void _check_gate_type(gate_type my_gate_type,int *num_qubits){
 
   if (my_gate_type==HADAMARD||my_gate_type==SIGMAX||my_gate_type==SIGMAY||my_gate_type==SIGMAZ||my_gate_type==EYE||
-      my_gate_type==RZ||my_gate_type==RX||my_gate_type==RY||my_gate_type==U3) {
+      my_gate_type==RZ||my_gate_type==RX||my_gate_type==RY||my_gate_type==U3||my_gate_type==PHASESHIFT||my_gate_type==T||my_gate_type==TDAG||my_gate_type==S) {
     *num_qubits = 1;
-  } else if (my_gate_type==CNOT||my_gate_type==CXZ||my_gate_type==CZ||my_gate_type==CmZ||my_gate_type==CZX){
+  } else if (my_gate_type==CNOT||my_gate_type==CXZ||my_gate_type==CZ||my_gate_type==CmZ||my_gate_type==CZX||my_gate_type==SWAP){
     *num_qubits = 2;
   } else {
     if (nid==0){
@@ -3112,4 +3786,9 @@ void _initialize_gate_function_array(){
   _get_val_j_functions_gates[RY+_min_gate_enum] = RY_get_val_j_from_global_i;
   _get_val_j_functions_gates[RZ+_min_gate_enum] = RZ_get_val_j_from_global_i;
   _get_val_j_functions_gates[U3+_min_gate_enum] = U3_get_val_j_from_global_i;
+  _get_val_j_functions_gates[SWAP+_min_gate_enum] = SWAP_get_val_j_from_global_i;
+  _get_val_j_functions_gates[PHASESHIFT+_min_gate_enum] = PHASESHIFT_get_val_j_from_global_i;
+  _get_val_j_functions_gates[T+_min_gate_enum] = T_get_val_j_from_global_i;
+  _get_val_j_functions_gates[TDAG+_min_gate_enum] = TDAG_get_val_j_from_global_i;
+  _get_val_j_functions_gates[S+_min_gate_enum] = S_get_val_j_from_global_i;
 }
