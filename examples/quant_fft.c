@@ -151,15 +151,11 @@ int main(int argc,char **args){
     
     //QFT for num_qubits
     add_gate_to_circuit(&teleportation,gate_count++*gate_time_step,HADAMARD,0);
-    printf("HADAMARD %d gate_count %d\n",0,gate_count);
     for(i=1;i<num_qubits;i++){
         for(j=0;j<i;j++){
-            add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,PHASESHIFT,i,j,PETSC_PI/pow(2,(i-j)));
-            printf("PHASESHIFT %d %d PetscPi/%lf gate_count%d \n",i,j,pow(2,(i-j)),gate_count);
-
+          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,PHASESHIFT,i,j,PETSC_PI/pow(2,(i-j)));
         }
         add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,HADAMARD,i);
-        printf("HADAMARD %d gate_count %d\n",i,gate_count);
     }
     
     combine_circuit_to_mat(&circ_mat,teleportation);
