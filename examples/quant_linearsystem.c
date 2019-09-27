@@ -148,39 +148,17 @@ Qubit3: register |0>
 Qubit4: memory   |b>*/
 
 //Phase Estimation
-/*c.add_gate(gate="h", qubit1=4, time=0.5)
-c.add_gate(gate="cnot", qubit1=4, qubit2=3, time=1.0)
-c.add_gate(gate="cnot", qubit1=3, qubit2=2, time=1.5)
-c.add_gate(gate="X", qubit1=3, time=2.0)*/
 add_gate_to_circuit(&teleportation,1*gate_time_step,HADAMARD,3);
 add_gate_to_circuit(&teleportation,2*gate_time_step,CNOT,3,2);
 add_gate_to_circuit(&teleportation,3*gate_time_step,CNOT,2,1);
 add_gate_to_circuit(&teleportation,4*gate_time_step,SIGMAX,2);
-/*
-//TODO ADD THE X-X line
-//c.add_gate(gate="SWAP", qubit1=2, qubit2=3, time=2.5)
-//SWAP(X,Y) is accomplished using 3 CNOT gates.
-c.add_gate(gate="cnot", qubit1=2, qubit2=3, time=3.0)
-c.add_gate(gate="cnot", qubit1=3, qubit2=2, time=3.5)
-c.add_gate(gate="cnot", qubit1=2, qubit2=3, time=4.0)*/
- add_gate_to_circuit(&teleportation,5*gate_time_step,SWAP,1,2);
+add_gate_to_circuit(&teleportation,5*gate_time_step,SWAP,1,2);
 
-/*//Controlled rotation
-c.add_gate(gate="U3", qubit1=3, qubit2=1, theta=np.pi, phi=0, anglelambda=0, time=4.5)
-c.add_gate(gate="U3", qubit1=2, qubit2=1, theta=np.pi/3, phi=0, anglelambda=0, time=5.0)*/
+//Controlled rotation
 add_gate_to_circuit(&teleportation,6*gate_time_step,U3,2,0);
 add_gate_to_circuit(&teleportation,7*gate_time_step,U3,1,0);
     
-/*//Inverse phase estimation
-//SWAP(X,Y) is accomplished using 3 CNOT gates.
-//c.add_gate(gate="SWAP", qubit1=2, qubit2=3, time=2.5)
-c.add_gate(gate="cnot", qubit1=2, qubit2=3, time=5.5)
-c.add_gate(gate="cnot", qubit1=3, qubit2=2, time=6.0)
-c.add_gate(gate="cnot", qubit1=2, qubit2=3, time=6.5)
-c.add_gate(gate="SIGMAX", qubit1=3, time=7.0)
-c.add_gate(gate="cnot", qubit1=3, qubit2=2, time=7.5)
-c.add_gate(gate="cnot", qubit1=4, qubit2=3, time=8.0)
-c.add_gate(gate="h", qubit1=4, time=8.5)*/
+//Inverse phase estimation
 add_gate_to_circuit(&teleportation,8*gate_time_step,SWAP,1,2);
 add_gate_to_circuit(&teleportation,9*gate_time_step,SIGMAX,2);
 add_gate_to_circuit(&teleportation,10*gate_time_step,CNOT,2,1);
