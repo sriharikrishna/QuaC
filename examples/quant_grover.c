@@ -136,53 +136,35 @@ int main(int argc,char **args){
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,SIGMAX,0);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,HADAMARD,1);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,HADAMARD,2);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,HADAMARD,0);
     
     // Grover Operator: Oracle
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,CNOT,1,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,TDAG,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,CNOT,2,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,T,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,CNOT,1,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,TDAG,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,CNOT,2,0);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,T,0);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,TDAG,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,HADAMARD,0);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,CNOT,2,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,TDAG,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,CNOT,2,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,S,1);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,T,2);
     
     // Grover Operator: The rest
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,HADAMARD,1);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,HADAMARD,2);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,SIGMAX,1);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,SIGMAX,2);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,HADAMARD,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,CNOT,2,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,HADAMARD,1);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,SIGMAX,1);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,SIGMAX,2);
-    
     add_gate_to_circuit(&teleportation,(++gate_count)*gate_time_step,HADAMARD,1);
     add_gate_to_circuit(&teleportation,(gate_count)*gate_time_step,HADAMARD,2);
 
