@@ -24,14 +24,26 @@ int main(int argc,char **args){
     Vec rho;
     int num_qubits,i,j,h_dim,system,gate_count;
     circuit teleportation,teleportation2;
-    Mat circ_mat,circ_mat2;
     PetscViewer    mat_view;
-    
+    PetscClassId quac_class_id;
+    PetscLogEvent add_gate_event;
+    PetscScalar traceval;
+    //PetscLogStage add_gate_stage;
+
     /* Initialize QuaC */
     QuaC_initialize(argc,args);
     
-    num_qubits = 5;
+    //num_qubits = 5;
     theta = 0.0;
+
+    PetscOptionsGetInt(NULL,NULL,"-num_qubits",&num_qubits,NULL);
+    qubits  = malloc(num_qubits*sizeof(struct operator));
+    gamma_1 = malloc(num_qubits*sizeof(PetscReal));
+    gamma_2 = malloc(num_qubits*sizeof(PetscReal));
+    sigma_x = malloc(num_qubits*sizeof(PetscReal));
+    sigma_y = malloc(num_qubits*sizeof(PetscReal));
+    sigma_z = malloc(num_qubits*sizeof(PetscReal));
+    omega   = malloc(num_qubits*sizeof(PetscReal));
     PetscOptionsGetReal(NULL,NULL,"-gam1",&gamma_1[0],NULL);
     PetscOptionsGetReal(NULL,NULL,"-gam2",&gamma_1[1],NULL);
     PetscOptionsGetReal(NULL,NULL,"-gam3",&gamma_1[2],NULL);
@@ -69,23 +81,17 @@ int main(int argc,char **args){
     PetscOptionsGetReal(NULL,NULL,"-om5",&omega[4],NULL);
     
     PetscOptionsGetReal(NULL,NULL,"-theta",&theta,NULL);
-    PetscOptionsGetInt(NULL,NULL,"-num_qubits",&num_qubits,NULL);
-    qubits  = malloc(num_qubits*sizeof(struct operator)); //Only need 3 qubits for teleportation
-    gamma_1 = malloc(num_qubits*sizeof(PetscReal)); //Only need 3 qubits for teleportation
-    gamma_2 = malloc(num_qubits*sizeof(PetscReal)); //Only need 3 qubits for teleportation
-    sigma_x = malloc(num_qubits*sizeof(PetscReal)); //Only need 3 qubits for teleportation
-    sigma_y = malloc(num_qubits*sizeof(PetscReal)); //Only need 3 qubits for teleportation
-    sigma_z = malloc(num_qubits*sizeof(PetscReal)); //Only need 3 qubits for teleportation
-    omega   = malloc(num_qubits*sizeof(PetscReal)); //Only need 3 qubits for teleportation
     for (i=0;i<num_qubits;i++){
         create_op(2,&qubits[i]);
-        omega[i]   = 0.0;
-        gamma_1[i] = 0;
-        gamma_2[i] = 0;
-        sigma_x[i] = 0;
-        sigma_y[i] = 0;
-        sigma_z[i] = 0;
+        omega[i]   = 0.5;
+        gamma_1[i] = 0.5;
+        gamma_2[i] = 0.5;
+        sigma_x[i] = 0.5;
+        sigma_y[i] = 0.5;
+        sigma_z[i] = 0.5;
     }
+    theta=PETSC_PI/4;
+
     
     /* Add terms to the hamiltonian */
     for (i=0;i<num_qubits;i++){
@@ -106,12 +112,15 @@ int main(int argc,char **args){
     printf("om: %f %f %f %f %f\n",omega[0],omega[1],omega[2],omega[3],omega[4]);
     printf("theta: %f\n",theta);
     
-    time_max  = 9;
-    dt        = 0.01;
-    steps_max = 1000;
+    //time_max  = 9;
+    //dt        = 0.01;
+    //steps_max = 1000;
+    time_max  = 61;
+    dt        = 1.0;
+    steps_max = 100;
     
     /* Set the ts_monitor to print results at each time step */
-    set_ts_monitor(ts_monitor);
+    //set_ts_monitor(ts_monitor);
     /* Open file that we will print to in ts_monitor */
     if (nid==0){
         f_pop = fopen("pop","w");
@@ -120,69 +129,74 @@ int main(int argc,char **args){
     
     create_full_dm(&rho);
     
-    create_dm(&rho_init,4);
-    create_dm(&rho_tmp,4);
-    printf("create_circuit gatelist length %d", num_qubits+((num_qubits+1)*num_qubits)/2);
+    create_dm(&rho_init,pow(2,1));
+    create_dm(&rho_tmp,pow(2,1));
+    printf("create_circuit gatelist length %d \n", num_qubits+5*((num_qubits+1)*num_qubits)/2);
     create_circuit(&teleportation,num_qubits+5*((num_qubits+1)*num_qubits)/2);
     
-    //Set the initial DM
-    mat_val = cos(theta)*cos(theta);
+    /*//Set the initial DM
     mat_val = 0.5;
     add_value_to_dm(rho,0,0,mat_val);
-    /* mat_val = cos(theta)*sin(theta); */
+    // mat_val = cos(theta)*sin(theta);
     mat_val = -0.5;
-    add_value_to_dm(rho,4,0,mat_val);
-    add_value_to_dm(rho,0,4,mat_val);
-    /* mat_val = sin(theta)*sin(theta); */
+    add_value_to_dm(rho,1,0,mat_val);
+    add_value_to_dm(rho,0,1,mat_val);
+    // mat_val = sin(theta)*sin(theta);
     mat_val = 0.5;
-    add_value_to_dm(rho,4,4,mat_val);
-    assemble_dm(rho);
+    add_value_to_dm(rho,1,1,mat_val);*/
     
-    /* print_dm(rho,8); */
+    mat_val = -1.0/total_levels;
+    printf("mat_val %lf\n", mat_val);
+    for(i=0;i<total_levels;i++){
+        for(j=0;j<total_levels;j++){
+            if(i==j)
+                add_value_to_dm(rho,i,j,-1.0*mat_val);
+            else
+                add_value_to_dm(rho,i,j,mat_val);
+        }
+    }
+    assemble_dm(rho);
     h_dim = pow(2,num_qubits);
     gate_time_step = 1.0;
-    gate_count=0;
-    
-    for(i=0;i<num_qubits;i++){
-        add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,RX,i);
-        printf("RX %d gate_count %d\n",i,gate_count);
+    gate_count=1;
 
+    PetscClassIdRegister("QuaC Class",&quac_class_id);
+    PetscLogEventRegister("add_gates",quac_class_id,&add_gate_event);
+    PetscLogEventBegin(add_gate_event,0,0,0,0);
+    //PetscLogStageRegister("Add-Gate",&add_gate_stage);
+    //PetscLogStagePush(add_gate_stage);
+    for(i=0;i<num_qubits;i++){
+        printf("(gate_count)*gate_time_step %f\n",(gate_count)*gate_time_step);
+        add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,RX,i);
     }
     
     //QFT for num_qubits
     add_gate_to_circuit(&teleportation,gate_count++*gate_time_step,HADAMARD,0);
-    printf("HADAMARD %d gate_count %d\n",0,gate_count);
     for(i=1;i<num_qubits;i++){
-        for(j=0;j<i;j++){
-          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,U3, i,0,0,PETSC_PI/pow(2,(i-j-1)));
-          printf("U3 %d PetscPi/%lf gate_count%d \n",i,pow(2,(i-j-1)),gate_count);
-            
+        for(j=0;j<i;j++){          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,U3, i,0,0,PETSC_PI/pow(2,(i-j-1)));          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,CNOT,i,j);          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,U3, j,0,0,-PETSC_PI/pow(2,(i-j-1)));
           add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,CNOT,i,j);
-          printf("CNOT %d %d gate_count%d \n",i,j,gate_count);
-            
-          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,U3, j,0,0,-PETSC_PI/pow(2,(i-j-1)));
-          printf("U3 %d PetscPi/%lf gate_count%d \n",j,-pow(2,(i-j-1)),gate_count);
-            
-          add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,CNOT,i,j);
-          printf("CNOT %d %d gate_count%d \n",i,j,gate_count);
-            
           add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,U3, j,0,0,PETSC_PI/pow(2,(i-j-1)));
-          printf("U3 %d PetscPi/%lf gate_count%d \n",j,pow(2,(i-j-1)),gate_count);
-
-        }
-        add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,HADAMARD,i);
-        printf("HADAMARD %d gate_count %d\n",i,gate_count);
+        }        add_gate_to_circuit(&teleportation,(gate_count++)*gate_time_step,HADAMARD,i);
     }
-    
-    combine_circuit_to_mat(&circ_mat,teleportation);
+    PetscLogEventEnd(add_gate_event,0,0,0,0);
+    //PetscLogStagePop();
     start_circuit_at_time(&teleportation,0.0);
-    
+    printf("Density matrix:\n");
+    //print_dm(rho,h_dim);
+    printf("Traceval: %lf\n", traceval);
+    trace_dm(&traceval,rho);
     time_step(rho,0.0,time_max,dt,steps_max);
     
-    //  steady_state(rho);:
-    partial_trace_over(rho,rho_tmp,2,qubits[0],qubits[1]);
-    //partial_trace_over(rho,rho_tmp,3,qubits[0],qubits[1],qubits[2]);
-    
+    //steady_state(rho);
+    if(num_qubits==3) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1]);
+    if(num_qubits==4) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2]);
+    if(num_qubits==5) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3]);
+    if(num_qubits==6) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3],qubits[4]);
+    if(num_qubits==7) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3],qubits[4],qubits[5]);
+    if(num_qubits==8) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3],qubits[4],qubits[5],qubits[6]);
+    if(num_qubits==9) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3],qubits[4],qubits[5],qubits[6],qubits[7]);
+    if(num_qubits==10) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3],qubits[4],qubits[5],qubits[6],qubits[7],qubits[8]);
+    if(num_qubits==11) partial_trace_over(rho,rho_tmp,num_qubits-1,qubits[0],qubits[1],qubits[2],qubits[3],qubits[4],qubits[5],qubits[6],qubits[7],qubits[8],qubits[9]);
     get_fidelity(rho_init,rho_tmp,&fidelity);
     if(nid==0) printf("Final fidelity: %f\n",fidelity);
     
@@ -196,7 +210,10 @@ int main(int argc,char **args){
     //if(nid==0) printf("Final PTraced DM: 1\n");
     //partial_trace_over(rho,rho_tmp,1,qubits[1]);
     //print_dm(rho_tmp,1);
-    
+    printf("Density matrix:\n");
+    //print_dm(rho,h_dim);
+    trace_dm(&traceval,rho);
+    printf("Traceval: %lf\n", traceval);
     destroy_dm(rho_init);
     destroy_dm(rho_tmp);
     for (i=0;i<num_qubits;i++){
@@ -209,14 +226,14 @@ int main(int argc,char **args){
 }
 
 PetscErrorCode ts_monitor(TS ts,PetscInt step,PetscReal time,Vec rho,void *ctx){
-    double fidelity,*populations;
+    /*double fidelity,*populations;
     int num_pop,i;
     
     num_pop = get_num_populations();
     populations = malloc(num_pop*sizeof(double));
     get_populations(rho,&populations);
     if (nid==0){
-        /* Print populations to file */
+        // Print populations to file
         fprintf(f_pop,"%e",time);
         for(i=0;i<num_pop;i++){
             fprintf(f_pop," %e ",populations[i]);
@@ -224,17 +241,12 @@ PetscErrorCode ts_monitor(TS ts,PetscInt step,PetscReal time,Vec rho,void *ctx){
         fprintf(f_pop,"\n");
     }
     
-    //partial_trace_over(rho,rho_tmp,2,qubits[0],qubits[1]);
     partial_trace_over(rho,rho_tmp,2,qubits[0],qubits[1]);
-    //partial_trace_over(rho,rho_tmp,3,qubits[0],qubits[1],qubits[2]);
-
-    //partial_trace_over(rho,rho_tmp,1,qubits[1]);
     
     get_fidelity(rho_init,rho_tmp,&fidelity);
     if(nid==0) printf("%f %f\n",time,fidelity);
     free(populations);
-    //  print_dm(dm,2);
+    //  print_dm(dm,2);*/
     PetscFunctionReturn(0);
     
 }
-
